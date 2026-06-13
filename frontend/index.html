@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Guesser</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            background-color: black;
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #prediction-output {
+            font-size: 48px;
+            font-weight: bold;
+            margin-top: 20px;
+            min-height: 60px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Draw a Digit (0-9)</h1>
+    <canvas id="canvas" width="280" height="280"></canvas>
+    <div class="controls">
+        <button id="clear-btn">Clear Canvas</button>
+    </div>
+    <div id="prediction-output">Prediction: -</div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const clearBtn = document.getElementById('clear-btn');
+        const predictionOutput = document.getElementById('prediction-output');
+
+        // Setup canvas
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 15;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // Mouse Events
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            lastX = e.clientX - rect.left;
+            lastY = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            lastX = x;
+            lastY = y;
+        });
+
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
+
+        // Clear button
+        clearBtn.addEventListener('click', () => {
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            predictionOutput.innerText = 'Prediction: -';
+        });
+
+        // Live Prediction Polling
+        setInterval(() => {
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+
+                const formData = new FormData();
+                formData.append('file', blob, 'digit.png');
+
+                fetch('http://localhost:8000/predict/', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.predicted_number !== undefined) {
+                            predictionOutput.innerText = `Prediction: ${data.predicted_number}`;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching prediction:', error);
+                    });
+            }, 'image/png');
+        }, 1000);
+    </script>
+</body>
+
+</html>
